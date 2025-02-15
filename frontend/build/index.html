@@ -1,0 +1,107 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio Recorder</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/streamlit-component-lib/1.5.0/streamlit.js"></script>
+    <style>
+        .audio-recorder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            padding: 10px;
+        }
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            background-color: #ff4b4b;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin-top: 10px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="audio-recorder">
+        <button id="record">Start Recording</button>
+        <p class="status" id="status">Click Start Recording to begin</p>
+    </div>
+
+    <script>
+        // Initialize the Streamlit component
+        const { setComponentValue } = window.Streamlit;
+        
+        // Get DOM elements
+        const recordButton = document.getElementById('record');
+        const statusElement = document.getElementById('status');
+        
+        // Audio recorder variables
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        
+        // Initialize
+        function initialize() {
+            recordButton.addEventListener('click', toggleRecording);
+        }
+        
+        // Toggle recording state
+        async function toggleRecording() {
+            if (!isRecording) {
+                // Start recording
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+                    
+                    mediaRecorder.addEventListener('dataavailable', event => {
+                        audioChunks.push(event.data);
+                    });
+                    
+                    mediaRecorder.addEventListener('stop', () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(audioBlob);
+                        reader.onloadend = () => {
+                            const base64data = reader.result.split(',')[1];
+                            setComponentValue(base64data);
+                            statusElement.textContent = "Recording saved. Click Start Recording to record again.";
+                        };
+                        
+                        // Stop all tracks
+                        stream.getTracks().forEach(track => track.stop());
+                    });
+                    
+                    mediaRecorder.start();
+                    isRecording = true;
+                    recordButton.textContent = "Stop Recording";
+                    statusElement.textContent = "Recording... Click Stop Recording when finished.";
+                } catch (err) {
+                    console.error("Error accessing microphone:", err);
+                    statusElement.textContent = "Error: Could not access microphone. Please check permissions.";
+                }
+            } else {
+                // Stop recording
+                mediaRecorder.stop();
+                isRecording = false;
+                recordButton.textContent = "Start Recording";
+            }
+        }
+        
+        // Run the component
+        initialize();
+    </script>
+</body>
+</html>
